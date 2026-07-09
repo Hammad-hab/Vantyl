@@ -4,7 +4,7 @@ Tiny app launcher for Vantum.
 
 ## What it is
 
-A lightweight, XML-configured app launcher with a Windows 11-inspired look.
+A lightweight, XML-configured app launcher with a default look.
 Built with GTK3, designed to run under JWM.
 
 ## Requirements
