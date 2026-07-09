@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <menu>
+    <bg image="images/josh-nuttall-xl2piFfdzyA-unsplash.jpg" size="cover"/>
     <!-- Icon-theme name, resolved against the system icon theme -->
     <item name="Firefox" icon="firefox" exec="firefox"/>
 

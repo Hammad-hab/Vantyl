@@ -1,4 +1,5 @@
 import argparse
+from enum import auto
 import os
 import re
 import shlex
@@ -6,10 +7,9 @@ import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import gi
+import gi, json
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GdkPixbuf
-
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 
 DEFAULT_ITEM_ICON = "image-missing"
 DEFAULT_FOLDER_ICON = "folder"
@@ -104,7 +104,35 @@ scrollbar slider:hover {
 }
 """
 
+class TMPProcess:
+    def __init__(self) -> None:
+        Path("/tmp/processz.tmp").touch(exist_ok=True)
+        self.file = open("/tmp/processz.tmp", "r+")
+        self.content = {}
 
+    def register_task(self, pid, name, exec, autoflush=True):
+        self.file.seek(0)
+        self.content = json.loads(self.file.read() or "{}")
+        self.content[pid]={'name':name, 'cmd': exec}
+        print(f'[REGISTER]: pid {pid}')
+        if (autoflush):
+            self.flush()
+
+    def unregister_task(self, pid, autoflush=True):
+        self.content[pid] = None
+        del self.content[pid]
+        if (autoflush):
+            self.flush()
+        
+    def flush(self):
+        self.file.seek(0)
+        self.file.truncate()
+        self.file.write(json.dumps(self.content))
+        self.file.flush()  # optional but recommended
+
+    def close(self):
+        self.file.close()
+        
 class MenuNode:
     """A single entry from the menu XML: either a folder (has children)
     or a leaf item (has an exec command). Only the tree root uses
@@ -369,6 +397,8 @@ class MainWindow(Gtk.Window):
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_decorated(False)
 
+        self.tmp = TMPProcess()
+
         self.menu_root = menu_root
         self.path_stack = []
         self.current = self.menu_root
@@ -548,7 +578,7 @@ window {{
         if node.is_folder:
             self.enter_folder(node)
         elif node.exec_cmd:
-            self.launch(node.exec_cmd)
+            self.launch(node.exec_cmd, node.name)
 
     def enter_folder(self, node):
         self.path_stack.append(self.current)
@@ -561,16 +591,21 @@ window {{
             self.current = self.path_stack.pop()
             self.refresh_view()
 
-    def launch(self, exec_cmd):
+    def launch(self, exec_cmd, name=None):
         try:
-            subprocess.Popen(shlex.split(exec_cmd))
+            proc = subprocess.Popen(shlex.split(exec_cmd))
         except Exception as exc:
             print(f"Failed to launch '{exec_cmd}': {exc}")
+        self.tmp.register_task(proc.pid, name, exec_cmd)
+        GLib.child_watch_add(proc.pid, self._on_child_exit, name or exec_cmd)
+
+    def _on_child_exit(self, pid, status, name):
+        self.tmp.unregister_task(pid)
 
     def on_search_changed(self, entry):
         self.refresh_view()
 
-def main():
+def main(): 
     args = parse_args()
 
     if args.menu_file and os.path.isfile(args.menu_file):

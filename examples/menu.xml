@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <menu>
-    <bg image="images/josh-nuttall-xl2piFfdzyA-unsplash.jpg" size="cover"/>
     <item name="Firefox" icon="firefox" exec="firefox"/>
     <item name="Terminal" icon="utilities-terminal" exec="xterm"/>
-    <item name="Calculator" icon="accessories-calculator" exec="galculator"/>
+    <item name="Safari" icon="accessories-calculator" exec="/Applications/Safari.app/Contents/MacOS/Safari"/>
+    <item name="UTM" icon="accessories-htop" exec="/Applications/UTM.app/Contents/MacOS/UTM "/>
     <folder name="Internet" icon="folder">
         <item name="Firefox" icon="firefox" exec="firefox"/>
         <item name="Thunderbird" icon="thunderbird" exec="thunderbird"/>
