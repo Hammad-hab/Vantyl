@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GdkPixbuf
 
 
 DEFAULT_ITEM_ICON = "image-missing"
@@ -232,19 +232,11 @@ class AppTile(Gtk.EventBox):
         box.set_border_width(14)
         self.add(box)
 
-        icon_name = node.icon or (
+        icon_value = node.icon or (
             DEFAULT_FOLDER_ICON if node.is_folder else DEFAULT_ITEM_ICON
         )
-        icon_theme = Gtk.IconTheme.get_default()
-        if not icon_theme.has_icon(icon_name):
-            icon_name = DEFAULT_FOLDER_ICON if node.is_folder else DEFAULT_ITEM_ICON
 
-        image = Gtk.Image.new_from_icon_name(
-            icon_name,
-            Gtk.IconSize.DIALOG
-        )
-        image.set_pixel_size(48)
-        image.set_halign(Gtk.Align.CENTER)
+        image = self._build_icon_image(icon_value, node.is_folder)
 
         label = Gtk.Label(label=node.name)
         label.set_justify(Gtk.Justification.CENTER)
@@ -254,6 +246,41 @@ class AppTile(Gtk.EventBox):
 
         box.pack_start(image, False, False, 0)
         box.pack_start(label, False, False, 0)
+
+    def _build_icon_image(self, icon_value, is_folder):
+        fallback_name = DEFAULT_FOLDER_ICON if is_folder else DEFAULT_ITEM_ICON
+        pixel_size = 48
+
+        looks_like_path = os.path.sep in icon_value or icon_value.startswith("~")
+        path = os.path.expanduser(icon_value) if looks_like_path else icon_value
+
+        if looks_like_path:
+            if os.path.isfile(path):
+                try:
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                        path, pixel_size, pixel_size, True
+                    )
+                    image = Gtk.Image.new_from_pixbuf(pixbuf)
+                    image.set_halign(Gtk.Align.CENTER)
+                    return image
+                except Exception as exc:
+                    print(f"Failed to load icon '{path}': {exc}")
+            else:
+                print(f"Icon file not found: '{path}'")
+
+            image = Gtk.Image.new_from_icon_name(fallback_name, Gtk.IconSize.DIALOG)
+            image.set_pixel_size(pixel_size)
+            image.set_halign(Gtk.Align.CENTER)
+            return image
+
+        # Not a path -- treat as an icon-theme name.
+        icon_theme = Gtk.IconTheme.get_default()
+        icon_name = icon_value if icon_theme.has_icon(icon_value) else fallback_name
+
+        image = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.DIALOG)
+        image.set_pixel_size(pixel_size)
+        image.set_halign(Gtk.Align.CENTER)
+        return image
 
     def _on_click(self, widget, event):
         if event.button == 1 and event.type == Gdk.EventType.BUTTON_PRESS:
