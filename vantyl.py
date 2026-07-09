@@ -1,8 +1,10 @@
 import argparse
 import os
+import re
 import shlex
 import subprocess
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -20,16 +22,6 @@ window {
 
 * {
     font-family: "Segoe UI", "Segoe UI Variable", sans-serif;
-}
-
-.header {
-    background-color: #202020;
-    border-bottom: 1px solid #2c2c2c;
-}
-
-.header-title {
-    color: #e8e8e8;
-    font-size: 12px;
 }
 
 .content {
@@ -115,7 +107,8 @@ scrollbar slider:hover {
 
 class MenuNode:
     """A single entry from the menu XML: either a folder (has children)
-    or a leaf item (has an exec command)."""
+    or a leaf item (has an exec command). Only the tree root uses
+    bg_color / bg_image / bg_size, set via an optional <bg .../> tag."""
 
     def __init__(self, name, icon=None, exec_cmd=None, is_folder=False):
         self.name = name
@@ -123,6 +116,61 @@ class MenuNode:
         self.exec_cmd = exec_cmd
         self.is_folder = is_folder
         self.children = []
+        self.bg_color = None
+        self.bg_image = None
+        self.bg_size = "cover"
+
+
+_SAFE_CSS_COLOR_RE = re.compile(r"^[#a-zA-Z0-9(),.\s%]+$")
+_VALID_BG_SIZES = {"cover", "contain"}
+
+
+def sanitize_css_color(value):
+    """Only allow characters that can appear in a CSS color value.
+    Since this string gets interpolated straight into a CSS rule, this
+    stops a stray XML attribute from breaking out and injecting arbitrary
+    CSS."""
+
+    if value and _SAFE_CSS_COLOR_RE.match(value.strip()):
+        return value.strip()
+    return None
+
+
+def resolve_bg_image(image_attr, menu_file_path):
+    """Resolve a <bg image="..."/> attribute to an absolute path on disk.
+
+    Relative paths are resolved against the directory containing the menu
+    XML file (not the current working directory), so menu files stay
+    portable. Returns None (and prints a warning) if the file can't be
+    found, so a bad path never crashes the launcher.
+    """
+
+    if not image_attr:
+        return None
+
+    candidate = os.path.expanduser(image_attr)
+    if not os.path.isabs(candidate):
+        base_dir = os.path.dirname(os.path.abspath(menu_file_path))
+        candidate = os.path.join(base_dir, candidate)
+
+    if os.path.isfile(candidate):
+        return os.path.abspath(candidate)
+
+    print(f"Ignoring <bg image=\"{image_attr}\"/>: file not found")
+    return None
+
+
+def css_url_for_path(abs_path):
+    """Build a CSS url(...) value for an absolute filesystem path.
+
+    Uses Path.as_uri() so spaces/unicode/etc. are percent-encoded properly,
+    then escapes quotes/backslashes defensively before interpolating into
+    the CSS string.
+    """
+
+    uri = Path(abs_path).as_uri()
+    uri = uri.replace("\\", "\\\\").replace('"', '\\"')
+    return f'url("{uri}")'
 
 
 def parse_menu_file(path):
@@ -131,6 +179,7 @@ def parse_menu_file(path):
     Expected format:
 
         <menu>
+            <bg color="#1a1a2e" image="wallpaper.jpg" size="cover"/>
             <item name="Firefox" icon="firefox" exec="firefox"/>
             <folder name="System" icon="folder">
                 <item name="Settings" icon="preferences-system" exec="..."/>
@@ -140,7 +189,16 @@ def parse_menu_file(path):
             </folder>
         </menu>
 
-    Folders can nest arbitrarily deep. Unrecognized tags are ignored.
+    Folders can nest arbitrarily deep. <bg .../> is optional and can
+    appear anywhere among the top-level entries; it sets the window
+    background:
+      - color: a CSS color, used as a solid background (and as the
+        fallback behind "image" while it loads / if it fails to draw).
+      - image: path to an image file, relative paths are resolved
+        against the menu file's directory. ~ is expanded.
+      - size: "cover" (default) or "contain".
+
+    Unrecognized tags are ignored.
     """
 
     tree = ET.parse(path)
@@ -150,6 +208,20 @@ def parse_menu_file(path):
 
     def build(xml_elem, parent_node):
         for child in xml_elem:
+            if child.tag == "bg":
+                color = sanitize_css_color(child.get("color"))
+                if child.get("color") and not color:
+                    print(f"Ignoring invalid <bg color=\"{child.get('color')}\"/>")
+                root_node.bg_color = color
+
+                root_node.bg_image = resolve_bg_image(child.get("image"), path)
+
+                size = child.get("size")
+                if size and size not in _VALID_BG_SIZES:
+                    print(f"Ignoring invalid <bg size=\"{size}\"/>, using 'cover'")
+                    size = None
+                root_node.bg_size = size or "cover"
+                continue
             if child.tag == "folder":
                 node = MenuNode(
                     name=child.get("name", "Folder"),
@@ -289,7 +361,7 @@ class AppTile(Gtk.EventBox):
 
 class MainWindow(Gtk.Window):
 
-    def __init__(self, menu_root):
+    def __init__(self, menu_root, bg_color=None, bg_image=None, bg_size="cover"):
         super().__init__()
 
         self.set_title("Vantum")
@@ -301,49 +373,59 @@ class MainWindow(Gtk.Window):
         self.path_stack = []
         self.current = self.menu_root
 
-        self.load_css()
+        self.load_css(bg_color, bg_image, bg_size)
 
         root = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL
         )
         self.add(root)
 
-        self.build_header(root)
         self.build_content(root)
 
-    def load_css(self):
+    def load_css(self, bg_color=None, bg_image=None, bg_size="cover"):
+        css = CSS
+
+        if bg_color:
+            # Appended after the base stylesheet, so it wins on source
+            # order for these selectors without needing !important.
+            css += f"""
+window {{
+    background-color: {bg_color};
+}}
+
+.content {{
+    background-color: {bg_color};
+}}
+"""
+
+        if bg_image:
+            # The image lives on exactly one element -- the window -- so it
+            # is only ever cropped/scaled once. .content is made transparent
+            # so that single background shows through it continuously,
+            # instead of each element computing its own independent
+            # "cover" against its own (differently sized/positioned) box.
+            url_value = css_url_for_path(bg_image)
+            css += f"""
+window {{
+    background-image: {url_value};
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: {bg_size};
+}}
+
+.content {{
+    background-color: transparent;
+    background-image: none;
+}}
+"""
+
         provider = Gtk.CssProvider()
-        provider.load_from_data(CSS.encode("utf-8"))
+        provider.load_from_data(css.encode("utf-8"))
 
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(),
             provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
-    def build_header(self, parent):
-
-        header = Gtk.EventBox()
-        header.set_size_request(-1, 40)
-        header.get_style_context().add_class("header")
-
-        parent.pack_start(header, False, False, 0)
-
-        box = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL,
-            spacing=10
-        )
-        box.set_border_width(8)
-        header.add(box)
-
-        title = Gtk.Label(label="Vantum")
-        title.get_style_context().add_class("header-title")
-
-        box.pack_start(title, False, False, 0)
-
-        header.connect(
-            "button-press-event",
-            self.begin_move
         )
 
     def build_content(self, parent):
@@ -488,17 +570,6 @@ class MainWindow(Gtk.Window):
     def on_search_changed(self, entry):
         self.refresh_view()
 
-    def begin_move(self, widget, event):
-
-        if event.button == 1:
-            self.begin_move_drag(
-                event.button,
-                int(event.x_root),
-                int(event.y_root),
-                event.time
-            )
-
-
 def main():
     args = parse_args()
 
@@ -509,7 +580,12 @@ def main():
             print(f"Menu file '{args.menu_file}' not found, using built-in demo menu.")
         menu_root = build_demo_menu()
 
-    win = MainWindow(menu_root)
+    win = MainWindow(
+        menu_root,
+        bg_color=menu_root.bg_color,
+        bg_image=menu_root.bg_image,
+        bg_size=menu_root.bg_size,
+    )
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
 

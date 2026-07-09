@@ -15,7 +15,7 @@ Built with GTK3, designed to run under JWM.
 ## Usage
 
 ```bash
-python3 vantum_launcher.py menu.xml
+python3 vantyl.py menu.xml
 ```
 
 If no menu file is given (or the path doesn't exist), Vantyl falls back to a
