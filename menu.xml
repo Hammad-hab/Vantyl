@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<menu>
+    <item name="Firefox" icon="firefox" exec="firefox"/>
+    <item name="Terminal" icon="utilities-terminal" exec="xterm"/>
+    <item name="Calculator" icon="accessories-calculator" exec="galculator"/>
+
+    <folder name="Internet" icon="folder">
+        <item name="Firefox" icon="firefox" exec="firefox"/>
+        <item name="Thunderbird" icon="thunderbird" exec="thunderbird"/>
+    </folder>
+
+    <folder name="System" icon="folder">
+        <item name="Settings" icon="preferences-system" exec="vantum-settings"/>
+        <folder name="Advanced" icon="folder">
+            <item name="Terminal" icon="utilities-terminal" exec="xterm"/>
+            <item name="Disk Utility" icon="drive-harddisk" exec="gnome-disks"/>
+        </folder>
+    </folder>
+</menu>
