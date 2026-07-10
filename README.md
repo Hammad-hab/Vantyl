@@ -1,6 +1,8 @@
-# Vantyl
-
-Tiny app launcher for Vantum.
+<h1>Vantyl</h1>
+<figure>
+<img src="examples/images/screenshot.png"/>
+<caption>Tiny app launcher for Vantum.</caption>
+</figure>
 
 ## What it is
 
