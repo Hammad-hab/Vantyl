@@ -14,6 +14,13 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 DEFAULT_ITEM_ICON = "image-missing"
 DEFAULT_FOLDER_ICON = "folder"
 
+theme = Gtk.IconTheme.get_default()
+
+try:
+    pixbuf = theme.load_icon("Safari", 48, 0)
+    print("Loaded!", pixbuf.get_width(), pixbuf.get_height())
+except Exception as e:
+    print(e)
 
 CSS = """
 window {
@@ -33,7 +40,7 @@ entry.search-entry {
     color: #ffffff;
     border: 1px solid #3d3d3d;
     border-radius: 6px;
-    padding: 2px 14px;
+    padding: 4px 14px;
     font-size: 14px;
     caret-color: #ffffff;
 }
@@ -79,6 +86,8 @@ entry.search-entry:focus {
     padding: 4px 10px;
     border-radius: 6px;
 }
+
+
 
 .back-button:hover {
     background-color: #3b3b3b;
@@ -309,6 +318,7 @@ def parse_args():
 
 
 class AppTile(Gtk.EventBox):
+
     def __init__(self, node, on_activate):
         super().__init__()
 
@@ -324,6 +334,8 @@ class AppTile(Gtk.EventBox):
         self.on_activate = on_activate
         self.get_style_context().add_class("app-tile")
         self.connect("button-press-event", self._on_click)
+        self.connect("enter-notify-event", self.on_enter)
+        self.connect("leave-notify-event", self.on_leave)
 
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -346,6 +358,16 @@ class AppTile(Gtk.EventBox):
 
         box.pack_start(image, False, False, 0)
         box.pack_start(label, False, False, 0)
+
+    def on_enter(self, widget, event):
+            cursor = Gdk.Cursor.new_from_name(
+                Gdk.Display.get_default(),
+                "pointer"
+            )
+            self.get_window().set_cursor(cursor)
+
+    def on_leave(self, widget, event):
+            self.get_window().set_cursor(None)
 
     def _build_icon_image(self, icon_value, is_folder):
         fallback_name = DEFAULT_FOLDER_ICON if is_folder else DEFAULT_ITEM_ICON
@@ -393,7 +415,7 @@ class MainWindow(Gtk.Window):
         super().__init__()
 
         self.set_title("Vantum")
-        self.set_default_size(900, 620)
+        self.set_default_size(700, 620)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_decorated(False)
 
@@ -514,7 +536,7 @@ window {{
         flow.set_row_spacing(12)
         flow.set_column_spacing(12)
         flow.set_homogeneous(True)
-        flow.set_halign(Gtk.Align.CENTER)
+        flow.set_halign(Gtk.Align.FILL)
         flow.set_valign(Gtk.Align.START)
 
         scrolled.add(flow)
