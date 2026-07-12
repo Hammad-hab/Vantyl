@@ -14,14 +14,6 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 DEFAULT_ITEM_ICON = "image-missing"
 DEFAULT_FOLDER_ICON = "folder"
 
-theme = Gtk.IconTheme.get_default()
-
-try:
-    pixbuf = theme.load_icon("Safari", 48, 0)
-    print("Loaded!", pixbuf.get_width(), pixbuf.get_height())
-except Exception as e:
-    print(e)
-
 CSS = """
 window {
     background-color: #202020;
