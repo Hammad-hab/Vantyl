@@ -93,6 +93,22 @@ entry.search-entry:focus {
     background-color: #3b3b3b;
 }
 
+.close-button {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    color: #e8e8e8;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.close-button:hover {
+    background-color: #e81123;
+    color: #ffffff;
+}
+
 .empty-label {
     color: #7a7a7a;
     font-size: 13px;
@@ -141,7 +157,28 @@ class TMPProcess:
 
     def close(self):
         self.file.close()
-        
+
+
+def set_pointer_cursor(widget):
+    """Show a pointer/hand cursor when hovering over widget."""
+    widget.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+    widget.connect("enter-notify-event", _on_cursor_enter)
+    widget.connect("leave-notify-event", _on_cursor_leave)
+
+
+def _on_cursor_enter(widget, event):
+    window = widget.get_window()
+    if window is not None:
+        cursor = Gdk.Cursor.new_from_name(Gdk.Display.get_default(), "pointer")
+        window.set_cursor(cursor)
+
+
+def _on_cursor_leave(widget, event):
+    window = widget.get_window()
+    if window is not None:
+        window.set_cursor(None)
+
+
 class MenuNode:
     """A single entry from the menu XML: either a folder (has children)
     or a leaf item (has an exec command). Only the tree root uses
@@ -334,8 +371,7 @@ class AppTile(Gtk.EventBox):
         self.on_activate = on_activate
         self.get_style_context().add_class("app-tile")
         self.connect("button-press-event", self._on_click)
-        self.connect("enter-notify-event", self.on_enter)
-        self.connect("leave-notify-event", self.on_leave)
+        set_pointer_cursor(self)
 
         box = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL,
@@ -358,16 +394,6 @@ class AppTile(Gtk.EventBox):
 
         box.pack_start(image, False, False, 0)
         box.pack_start(label, False, False, 0)
-
-    def on_enter(self, widget, event):
-            cursor = Gdk.Cursor.new_from_name(
-                Gdk.Display.get_default(),
-                "pointer"
-            )
-            self.get_window().set_cursor(cursor)
-
-    def on_leave(self, widget, event):
-            self.get_window().set_cursor(None)
 
     def _build_icon_image(self, icon_value, is_folder):
         fallback_name = DEFAULT_FOLDER_ICON if is_folder else DEFAULT_ITEM_ICON
@@ -426,6 +452,9 @@ class MainWindow(Gtk.Window):
         self.current = self.menu_root
 
         self.load_css(bg_color, bg_image, bg_size)
+
+        # Global Esc-to-quit, regardless of which child widget has focus.
+        self.connect("key-press-event", self.on_key_press)
 
         root = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL
@@ -512,12 +541,21 @@ window {{
         self.back_button.set_relief(Gtk.ReliefStyle.NONE)
         self.back_button.get_style_context().add_class("back-button")
         self.back_button.connect("clicked", lambda *_: self.go_back())
+        set_pointer_cursor(self.back_button)
         nav_row.pack_start(self.back_button, False, False, 0)
 
         self.section_label = Gtk.Label(label="All apps")
         self.section_label.set_halign(Gtk.Align.START)
         self.section_label.get_style_context().add_class("section-label")
         nav_row.pack_start(self.section_label, False, False, 0)
+
+        # Close button, pinned to the right side of the nav row.
+        self.close_button = Gtk.Button(label="\u2715")
+        self.close_button.set_relief(Gtk.ReliefStyle.NONE)
+        self.close_button.get_style_context().add_class("close-button")
+        self.close_button.connect("clicked", lambda *_: self.quit_app())
+        set_pointer_cursor(self.close_button)
+        nav_row.pack_end(self.close_button, False, False, 0)
 
         content.pack_start(nav_row, False, False, 0)
 
@@ -550,6 +588,17 @@ window {{
         content.pack_start(self.empty_label, False, False, 0)
 
         self.refresh_view()
+
+    # -- window lifecycle -----------------------------------------------------
+
+    def on_key_press(self, widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.quit_app()
+        return False
+
+    def quit_app(self):
+        self.tmp.close()
+        self.destroy()
 
     # -- menu tree navigation -------------------------------------------------
 
