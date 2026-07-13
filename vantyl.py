@@ -22,7 +22,7 @@ window {
 * {
     font-family: "Segoe UI", "Segoe UI Variable", sans-serif;
 }
-`
+
 .content {
     background-color: #202020;
 }
