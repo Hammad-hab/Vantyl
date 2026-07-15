@@ -432,7 +432,7 @@ class MainWindow(Gtk.Window):
     def __init__(self, menu_root, bg_color=None, bg_image=None, bg_size="cover"):
         super().__init__()
 
-        self.set_title("Vantum")
+        self.set_title("Vantyl")
         self.set_default_size(700, 620)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_decorated(False)
