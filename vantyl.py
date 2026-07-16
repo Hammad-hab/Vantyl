@@ -437,7 +437,6 @@ class MainWindow(Gtk.Window):
         self.set_default_size(700, 620)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_decorated(False)
-        self.set_keep_above(True)
 
         self.tmp = TMPProcess()
 
@@ -457,6 +456,7 @@ class MainWindow(Gtk.Window):
         self.add(root)
 
         self.build_content(root)
+
 
     def on_focus_out(self, widget, event):
         self.quit_app()
@@ -525,7 +525,7 @@ window {{
 
         self.search = Gtk.SearchEntry()
         self.search.set_placeholder_text("Search applications...")
-        self.search.set_size_request(480, -1)
+        self.search.set_size_request(480, 48)
         self.search.get_style_context().add_class("search-entry")
         self.search.connect("search-changed", self.on_search_changed)
         self.search.connect("changed", self.on_search_changed)
@@ -709,7 +709,11 @@ def main():
         bg_size=menu_root.bg_size,
     )
     win.connect("destroy", Gtk.main_quit)
+
     win.show_all()
+    win.present()
+    win.search.grab_focus()
+    win.set_keep_above(True)
 
     Gtk.main()
 

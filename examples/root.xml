@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<menu>
+
+    <item name="Firefox" icon="assets/icons/firefox.svg" exec="firefox"/>
+    <item name="Terminal" icon="assets/icons/utilities-terminal.svg" exec="xterm"/>
+    <item name="Files" icon="assets/icons/file-manager.svg" exec="nautilus"/>
+
+    <item name="Firefox" icon="assets/icons/firefox.svg" exec="firefox"/>
+    <item name="Chrome" icon="assets/icons/google-chrome.svg" exec="google-chrome"/>
+    <item name="Thunderbird" icon="assets/icons/thunderbird.svg" exec="thunderbird"/>
+
+    <item name="Gitg" icon="assets/icons/gitg.svg" exec="gitg"/>
+    <item name="Terminal" icon="assets/icons/utilities-terminal.svg" exec="xterm"/>
+
+    <item name="Writer" icon="assets/icons/writer.svg" exec="libreoffice --writer"/>
+    <item name="Calc" icon="assets/icons/calc.svg" exec="libreoffice --calc"/>
+    <item name="Impress" icon="assets/icons/impress.svg" exec="libreoffice --impress"/>
+
+    <item name="VLC" icon="assets/icons/vlc.svg" exec="vlc"/>
+    <item name="Music" icon="assets/icons/music.svg" exec="audacious"/>
+    <item name="Image Viewer" icon="assets/icons/image-viewer.svg" exec="loupe"/>
+
+    <item name="Calculator" icon="assets/icons/calculator.svg" exec="gnome-calculator"/>
+    <item name="Text Editor" icon="assets/icons/text-editor.svg" exec="gedit"/>
+    <item name="Notes" icon="assets/icons/text-editor.svg" exec="gedit ~/notes.txt"/>
+    <item name="Downloads" icon="assets/icons/folder.svg" exec="xdg-open ~/Downloads"/>
+    <item name="Pictures" icon="assets/icons/folder.svg" exec="xdg-open ~/Pictures"/>
+    <item name="Music" icon="assets/icons/folder.svg" exec="xdg-open ~/Music"/>
+    <item name="Videos" icon="assets/icons/folder.svg" exec="xdg-open ~/Videos"/>
+
+    <item name="Files" icon="assets/icons/file-manager.svg" exec="nautilus"/>
+
+    <item name="Terminal" icon="assets/icons/utilities-terminal.svg" exec="xterm"/>
+    <item name="Root Shell" icon="assets/icons/utilities-terminal.svg" exec="pkexec xterm"/>
+
+    <item name="Terminal" icon="assets/icons/utilities-terminal.svg" exec="xterm"/>
+
+</menu>

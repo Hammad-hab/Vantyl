@@ -9,6 +9,12 @@ OUTPUT_PATH = "menu.xml"
 
 FIELD_CODE_RE = re.compile(r"%[fFuUdDnNickvm]")
 
+# Categories we ignore entirely when picking a folder name -- these are
+# generic/qualifier tags in the spec, not something a user would want
+# as a menu folder on their own (e.g. an app tagged only "GTK;Utility;"
+# should fall under "Utility", not "GTK").
+CATEGORY_SKIP = {"GTK", "GNOME", "KDE", "Qt", "X11", "Application"}
+
 
 def clean_exec(exec_str):
     """Strip .desktop field codes (%f, %U, etc.) — they're meant to be
@@ -17,6 +23,37 @@ def clean_exec(exec_str):
     if not exec_str:
         return None
     return FIELD_CODE_RE.sub("", exec_str).strip()
+
+
+def category_to_folder_name(category):
+    """Turn a raw Categories token into a folder name.
+
+    - 'X-<whatever>' -> strip the 'X-' vendor-prefix, keep the rest.
+    - anything else -> used as-is.
+    In both cases, '-' becomes a space (e.g. 'X-Desktop' -> 'Desktop',
+    a hypothetical 'Network-Tools' -> 'Network Tools').
+    """
+    cat = category.strip()
+    if cat.startswith("X-"):
+        cat = cat[2:]
+    return cat.replace("-", " ").strip()
+
+
+def pick_folder_name(categories_str):
+    """Pick the first usable category from a raw 'Categories=' value and
+    convert it to a folder name. Returns None if there's nothing usable
+    (missing field, or only skip-listed/empty tokens) -- callers should
+    treat that as 'no folder, goes at menu root'."""
+    if not categories_str:
+        return None
+
+    for token in categories_str.split(";"):
+        token = token.strip()
+        if not token or token in CATEGORY_SKIP:
+            continue
+        return category_to_folder_name(token)
+
+    return None
 
 
 def collect_apps(applications_dir):
@@ -54,7 +91,9 @@ def collect_apps(applications_dir):
         if not name or not exec_cmd:
             continue
 
-        apps.append({"name": name, "icon": icon, "exec": exec_cmd})
+        folder = pick_folder_name(entry.get("Categories"))
+
+        apps.append({"name": name, "icon": icon, "exec": exec_cmd, "folder": folder})
 
     return apps
 
@@ -62,11 +101,25 @@ def collect_apps(applications_dir):
 def build_menu_xml(apps):
     root = ET.Element("menu")
 
+    # folder name -> its <folder> Element, created lazily and in
+    # first-seen order so the output is stable and grouped sensibly
+    # rather than alphabetically scrambled.
+    folder_elems = {}
+
     for app in apps:
         attrs = {"name": app["name"], "exec": app["exec"]}
         if app["icon"]:
             attrs["icon"] = app["icon"]
-        ET.SubElement(root, "item", attrs)
+
+        if app["folder"]:
+            parent = folder_elems.get(app["folder"])
+            if parent is None:
+                parent = ET.SubElement(root, "folder", {"name": app["folder"]})
+                folder_elems[app["folder"]] = parent
+        else:
+            parent = root
+
+        ET.SubElement(parent, "item", attrs)
 
     rough = ET.tostring(root, encoding="unicode")
     return minidom.parseString(rough).toprettyxml(indent="    ")
