@@ -1,11 +1,12 @@
 import argparse
-from enum import auto
+import sys
 import os
 import re
 import shlex
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import fcntl
 
 import gi, json
 gi.require_version("Gtk", "3.0")
@@ -436,6 +437,7 @@ class MainWindow(Gtk.Window):
         self.set_default_size(700, 620)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_decorated(False)
+        self.set_keep_above(True)
 
         self.tmp = TMPProcess()
 
@@ -447,6 +449,7 @@ class MainWindow(Gtk.Window):
 
         # Global Esc-to-quit, regardless of which child widget has focus.
         self.connect("key-press-event", self.on_key_press)
+        self.connect("focus-out-event", self.on_focus_out)
 
         root = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL
@@ -455,6 +458,10 @@ class MainWindow(Gtk.Window):
 
         self.build_content(root)
 
+    def on_focus_out(self, widget, event):
+        self.quit_app()
+        return False
+        
     def load_css(self, bg_color=None, bg_image=None, bg_size="cover"):
         css = CSS
 
@@ -642,6 +649,7 @@ window {{
             self.enter_folder(node)
         elif node.exec_cmd:
             self.launch(node.exec_cmd, node.name)
+            self.quit_app()
 
     def enter_folder(self, node):
         self.path_stack.append(self.current)
@@ -668,7 +676,23 @@ window {{
     def on_search_changed(self, entry):
         self.refresh_view()
 
+LOCK_PATH = "/tmp/vantyl.lock"
+
+def acquire_single_instance_lock():
+    """Prevent a second Vantyl instance from running. Returns the open
+    lock file handle -- keep a reference to it alive for the process
+    lifetime, or the lock is released early."""
+    lock_file = open(LOCK_PATH, "w")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (IOError, OSError):
+        print("Vantyl is already running.")
+        sys.exit(0)
+    return lock_file
+
+
 def main(): 
+    _lock = acquire_single_instance_lock()
     args = parse_args()
 
     if args.menu_file and os.path.isfile(args.menu_file):
