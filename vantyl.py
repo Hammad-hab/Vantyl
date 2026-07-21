@@ -120,6 +120,31 @@ scrollbar slider {
 scrollbar slider:hover {
     background-color: #606060;
 }
+
+.power-button {
+    background-color: red;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    color: #e8e8e8;
+    border-radius:100px;
+    font-size: 16px;
+    padding: 0;
+    min-width: 30px;
+    min-height: 30px;
+}
+
+.power-button:hover,
+.power-button:focus,
+.power-button:active {
+    background-color: red;
+    background-image: none;
+    box-shadow: none;
+    outline: none;
+    color: #e8e8e8;
+}
+
 """
 
 class TMPProcess:
@@ -586,9 +611,25 @@ window {{
         self.empty_label.set_no_show_all(True)
         content.pack_start(self.empty_label, False, False, 0)
 
+
+        # Power button, bottom-right corner.
+        power_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        power_row.set_halign(Gtk.Align.END)
+
+        self.power_button = Gtk.Button(label="\u23fb")  # ⏻ power symbol
+        self.power_button.set_relief(Gtk.ReliefStyle.NONE)
+        self.power_button.get_style_context().add_class("power-button")
+        self.power_button.connect("clicked", lambda *_: self.power_off())
+        set_pointer_cursor(self.power_button)
+        power_row.pack_start(self.power_button, False, False, 0)
+        content.pack_start(power_row, False, False, 0)
+
         self.refresh_view()
 
     # -- window lifecycle -----------------------------------------------------
+    def power_off(self):
+        self.launch('logout_gui')
+        self.quit_app()
 
     def on_key_press(self, widget, event):
         if event.keyval == Gdk.KEY_Escape:
